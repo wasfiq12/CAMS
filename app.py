@@ -307,28 +307,6 @@ def build_pm25_dashboard():
     vis_max = pm_max + data_range * 0.05
 
     # --------------------------------------------------------
-    # STATISTIK CAMS
-    # --------------------------------------------------------
-
-    cams_stats = cams_mean.reduceRegion(
-        reducer=(
-            ee.Reducer.minMax()
-            .combine(
-                reducer2=ee.Reducer.mean(),
-                sharedInputs=True
-            )
-        ),
-        geometry=aoi.geometry(),
-        scale=45000,
-        maxPixels=1e13,
-        bestEffort=True
-    ).getInfo()
-
-    cams_min = cams_stats.get("CAMS_PM25_min")
-    cams_max = cams_stats.get("CAMS_PM25_max")
-    cams_mean_value = cams_stats.get("CAMS_PM25_mean")
-
-    # --------------------------------------------------------
     # CENTER
     # Hindari getInfo centroid: pusat Belitung dibuat tetap.
     # --------------------------------------------------------
@@ -342,18 +320,10 @@ def build_pm25_dashboard():
 
     m = folium.Map(
         location=[center_lat, center_lon],
-        zoom_start=9,
+        zoom_start=10,
         tiles=None,
         control_scale=True
     )
-
-    folium.TileLayer(
-        tiles="https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
-        attr="Google Satellite",
-        name="Google Satellite",
-        overlay=False,
-        control=True
-    ).add_to(m)
 
     folium.TileLayer(
         tiles="https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
@@ -377,34 +347,6 @@ def build_pm25_dashboard():
     ]
 
     # --------------------------------------------------------
-    # CAMS MAP
-    # --------------------------------------------------------
-
-    if cams_min is not None and cams_max is not None:
-
-        cams_range = cams_max - cams_min
-
-        if cams_range == 0:
-            cams_range = 1
-
-        cams_vis = {
-            "min": max(0, cams_min - cams_range * 0.05),
-            "max": cams_max + cams_range * 0.05,
-            "palette": palette
-        }
-
-        cams_mapid = cams_mean.getMapId(cams_vis)
-
-        folium.TileLayer(
-            tiles=cams_mapid["tile_fetcher"].url_format,
-            attr="Google Earth Engine",
-            name="CAMS PM2.5",
-            overlay=True,
-            control=True,
-            opacity=0.60
-        ).add_to(m)
-
-    # --------------------------------------------------------
     # DOWNSCALED MAP
     # --------------------------------------------------------
 
@@ -419,7 +361,7 @@ def build_pm25_dashboard():
     folium.TileLayer(
         tiles=downscaled_mapid["tile_fetcher"].url_format,
         attr="Google Earth Engine",
-        name="PM2.5 Downscaled",
+        name="PM2.5 1 km",
         overlay=True,
         control=True,
         opacity=0.80
@@ -560,81 +502,9 @@ except Exception as e:
     st.code(str(e))
     st.stop()
 
-
-# ============================================================
-# DASHBOARD
-# ============================================================
-
-st.subheader("📊 Statistik")
-
-c1, c2, c3, c4 = st.columns(4)
-
-c1.metric(
-    "CAMS Mean",
-    f"{result['cams_mean']:.2f} µg/m³"
-    if result["cams_mean"] is not None else "N/A"
-)
-
-c2.metric(
-    "Downscaled Mean",
-    f"{result['pm_mean']:.2f} µg/m³"
-)
-
-c3.metric(
-    "Downscaled Min",
-    f"{result['pm_min']:.2f} µg/m³"
-)
-
-c4.metric(
-    "Downscaled Max",
-    f"{result['pm_max']:.2f} µg/m³"
-)
-
-st.caption(
-    f"CAMS images: {result['cams_count']} | "
-    f"Periode: 01–31 Agustus 2026 | "
-    f"Resolusi pemrosesan: {PROCESSING_SCALE/1000:g} km"
-)
-
-st.subheader("🗺️ Peta")
-
 components.html(
     result["map_html"],
     height=720,
     scrolling=False
 )
 
-with st.expander("📋 Statistik lengkap"):
-    st.write({
-        "CAMS minimum (µg/m³)": result["cams_min"],
-        "CAMS maximum (µg/m³)": result["cams_max"],
-        "CAMS mean (µg/m³)": result["cams_mean"],
-        "Downscaled minimum (µg/m³)": result["pm_min"],
-        "Downscaled maximum (µg/m³)": result["pm_max"],
-        "Downscaled mean (µg/m³)": result["pm_mean"],
-        "Downscaled std dev (µg/m³)": result["pm_std"]
-    })
-
-with st.expander("ℹ️ Metodologi"):
-    st.markdown(
-        """
-        **Periode:** 01–31 Agustus 2026
-
-        **Input:**
-        - CAMS PM2.5
-        - Sentinel-5P NO₂
-        - Sentinel-5P CO
-        - Sentinel-5P SO₂
-        - MODIS AOD
-        - MODIS NDVI
-        - SRTM Elevation
-
-        **Model:** Random Forest Regression, 200 trees, seed 42.
-
-        **Target training:** CAMS PM2.5.
-
-        **Catatan:** output merupakan prototype spatial
-        redistribution/downscaling CAMS dan belum dikalibrasi
-        menggunakan observasi PM2.5 stasiun.
-        """
-    )
