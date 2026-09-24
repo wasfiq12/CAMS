@@ -340,7 +340,7 @@ def build_pm25_dashboard():
     folium.TileLayer(
         tiles=downscaled_mapid["tile_fetcher"].url_format,
         attr="Google Earth Engine",
-        name="PM2.5 1 km",
+        name="PM2.5 Resolusi 1 km",
         overlay=True,
         control=True,
         opacity=0.80
@@ -391,7 +391,7 @@ def build_pm25_dashboard():
     <br>
 
     <span style="font-size:12px;">
-    01–31 Agustus 2026
+    Rata-rata 01–31 Agustus 2026
     </span>
 
     <br><br>
