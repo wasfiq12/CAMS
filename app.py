@@ -15,10 +15,6 @@ st.set_page_config(
 )
 
 st.title("🛰️ Estimasi PM2.5 – Belitung")
-st.caption(
-    "CAMS PM2.5 + Sentinel-5P + MODIS + SRTM | "
-    "Random Forest Machine Learning"
-)
 
 # ============================================================
 # KONFIGURASI TETAP
@@ -97,13 +93,6 @@ def build_pm25_dashboard():
         .filterBounds(aoi)
         .select("particulate_matter_d_less_than_25_um_surface")
     )
-
-    cams_count = cams.size().getInfo()
-
-    if cams_count == 0:
-        raise RuntimeError(
-            "Tidak ada image CAMS pada periode 01–31 Agustus 2026."
-        )
 
     def cams_to_ugm3(img):
         return (
@@ -269,21 +258,13 @@ def build_pm25_dashboard():
     )
 
     # --------------------------------------------------------
-    # STATISTIK DOWNSCALED
+    # RENTANG VISUALISASI
+    # Min/Max tetap dihitung hanya untuk skala warna peta.
+    # Tidak ditampilkan sebagai statistik dashboard.
     # --------------------------------------------------------
 
     stats = downscaled_pm25.reduceRegion(
-        reducer=(
-            ee.Reducer.minMax()
-            .combine(
-                reducer2=ee.Reducer.mean(),
-                sharedInputs=True
-            )
-            .combine(
-                reducer2=ee.Reducer.stdDev(),
-                sharedInputs=True
-            )
-        ),
+        reducer=ee.Reducer.minMax(),
         geometry=aoi.geometry(),
         scale=PROCESSING_SCALE,
         maxPixels=1e13,
@@ -292,11 +273,9 @@ def build_pm25_dashboard():
 
     pm_min = stats.get("PM25_DOWNSCALED_min")
     pm_max = stats.get("PM25_DOWNSCALED_max")
-    pm_mean = stats.get("PM25_DOWNSCALED_mean")
-    pm_std = stats.get("PM25_DOWNSCALED_stdDev")
 
-    if None in [pm_min, pm_max, pm_mean, pm_std]:
-        raise RuntimeError("Statistik PM2.5 tidak berhasil dihitung.")
+    if pm_min is None or pm_max is None:
+        raise RuntimeError("Rentang PM2.5 tidak berhasil dihitung.")
 
     data_range = pm_max - pm_min
 
@@ -406,7 +385,7 @@ def build_pm25_dashboard():
     ">
 
     <b style="font-size:15px;">
-    Estimasi PM2.5 Belitung
+    PM2.5 Downscaled 1 km
     </b>
 
     <br>
@@ -443,17 +422,7 @@ def build_pm25_dashboard():
     ">
 
     <span>{vis_min:.1f}</span>
-    <span>{pm_mean:.1f}</span>
-    <span>{vis_max:.1f}</span>
-
-    </div>
-
-    <div style="margin-top:8px;">
-
-    <b>Min:</b> {pm_min:.2f} µg/m³<br>
-    <b>Max:</b> {pm_max:.2f} µg/m³<br>
-    <b>Mean:</b> {pm_mean:.2f} µg/m³<br>
-    <b>Std:</b> {pm_std:.2f} µg/m³
+    <span>{vis_max:.1f} µg/m³</span>
 
     </div>
 
@@ -474,37 +443,28 @@ def build_pm25_dashboard():
 
     map_html = m.get_root().render()
 
-    return {
-        "map_html": map_html,
-        "cams_count": cams_count,
-        "cams_min": cams_min,
-        "cams_max": cams_max,
-        "cams_mean": cams_mean_value,
-        "pm_min": pm_min,
-        "pm_max": pm_max,
-        "pm_mean": pm_mean,
-        "pm_std": pm_std
-    }
+    return map_html
 
 
 # ============================================================
 # TAMPILKAN HASIL
-#
-# Cache miss: proses Earth Engine berjalan satu kali.
-# Cache hit: langsung tampil dari hasil cache.
 # ============================================================
 
 try:
-    result = build_pm25_dashboard()
+    map_html = build_pm25_dashboard()
 
 except Exception as e:
-    st.error("Gagal memproses estimasi PM2.5.")
+    st.error("Gagal memproses peta PM2.5.")
     st.code(str(e))
     st.stop()
 
+
+# ============================================================
+# PETA
+# ============================================================
+
 components.html(
-    result["map_html"],
+    map_html,
     height=720,
     scrolling=False
 )
-
