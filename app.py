@@ -10,7 +10,7 @@ from datetime import date
 # ============================================================
 
 st.set_page_config(
-    page_title="Estimasi PM2.5 Bulan Agustus 2026 Pulau Belitung ",
+    page_title="Estimasi PM2.5 Bulan Agustus 2026 Pulau Belitung",
     page_icon="🛰️",
     layout="wide"
 )
@@ -49,6 +49,22 @@ except Exception as e:
     st.error("Earth Engine gagal diinisialisasi.")
     st.code(str(e))
     st.stop()
+
+# ============================================================
+# TANGGAL
+# Tidak menggunakan sidebar.
+# Sesuai notebook: 1–31 Agustus 2026
+# ============================================================
+
+START_DATE = "2026-08-01"
+END_DATE = "2026-08-31"
+
+# Earth Engine filterDate bersifat end-exclusive,
+# sehingga tambahkan 1 hari agar 31 Agustus ikut terambil.
+END_DATE_EXCLUSIVE = "2026-09-01"
+
+# Resolusi sesuai notebook
+PROCESSING_SCALE = 1000
 
 # ============================================================
 # AOI - SESUAI IPYNB
@@ -182,7 +198,7 @@ elevation = (
 )
 
 # ============================================================
-# PREDICTORS - SESUAI IPYNB
+# PREDICTORS
 # ============================================================
 
 predictors = (
@@ -196,12 +212,12 @@ predictors = (
 )
 
 # ============================================================
-# RANDOM FOREST - SESUAI IPYNB
+# RANDOM FOREST
 # ============================================================
 
 training = predictors.sample(
     region=aoi.geometry(),
-    scale=1000,
+    scale=PROCESSING_SCALE,
     numPixels=10000,
     seed=42,
     geometries=False
@@ -226,7 +242,7 @@ rf_model = rf.train(
 )
 
 # ============================================================
-# DOWNSCALED PM2.5 - SESUAI IPYNB
+# DOWNSCALED PM2.5
 # ============================================================
 
 downscaled_pm25 = (
@@ -261,7 +277,7 @@ stats = downscaled_pm25.reduceRegion(
         )
     ),
     geometry=aoi.geometry(),
-    scale=1000,
+    scale=PROCESSING_SCALE,
     maxPixels=1e13,
     bestEffort=True
 ).getInfo()
@@ -324,7 +340,6 @@ m = folium.Map(
     control_scale=True
 )
 
-# Google Satellite
 folium.TileLayer(
     tiles="https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
     attr="Google Satellite",
@@ -333,7 +348,6 @@ folium.TileLayer(
     control=True
 ).add_to(m)
 
-# Google Hybrid
 folium.TileLayer(
     tiles="https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
     attr="Google Hybrid",
@@ -364,6 +378,7 @@ pm25_palette = [
 # ============================================================
 
 if cams_min is not None and cams_max is not None:
+
     cams_range = cams_max - cams_min
 
     if cams_range == 0:
@@ -423,7 +438,7 @@ folium.GeoJson(
 ).add_to(m)
 
 # ============================================================
-# LEGEND - RANGE SESUAI DATA
+# LEGEND
 # ============================================================
 
 legend_html = f"""
@@ -448,7 +463,7 @@ Estimasi PM2.5 Belitung
 <br>
 
 <span style="font-size:12px;">
-{start_date.strftime('%d %b %Y')} – {end_date.strftime('%d %b %Y')}
+01–31 Agustus 2026
 </span>
 
 <br><br>
@@ -535,7 +550,8 @@ c4.metric(
 
 st.caption(
     f"CAMS images: {cams_count} | "
-    f"Resolusi pemrosesan: {scale/1000:g} km"
+    f"Periode: 01–31 Agustus 2026 | "
+    f"Resolusi pemrosesan: {PROCESSING_SCALE/1000:g} km"
 )
 
 st.subheader("🗺️ Peta")
@@ -545,3 +561,35 @@ components.html(
     height=720,
     scrolling=False
 )
+
+with st.expander("📋 Statistik lengkap"):
+    st.write({
+        "CAMS minimum (µg/m³)": cams_min,
+        "CAMS maximum (µg/m³)": cams_max,
+        "CAMS mean (µg/m³)": cams_mean_value,
+        "Downscaled minimum (µg/m³)": pm_min,
+        "Downscaled maximum (µg/m³)": pm_max,
+        "Downscaled mean (µg/m³)": pm_mean,
+        "Downscaled std dev (µg/m³)": pm_std
+    })
+
+with st.expander("ℹ️ Metodologi"):
+    st.markdown(
+        """
+        **Periode:** 01–31 Agustus 2026
+
+        **Input:**
+        - CAMS PM2.5
+        - Sentinel-5P NO₂
+        - Sentinel-5P CO
+        - Sentinel-5P SO₂
+        - MODIS AOD
+        - MODIS NDVI
+        - SRTM Elevation
+
+        **Model:** Random Forest Regression, 200 trees, seed 42.
+
+        **Target training:** CAMS PM2.5.
+
+        """
+    )
