@@ -18,7 +18,7 @@ st.set_page_config(
 st.title("🛰️ Estimasi PM2.5 – Belitung")
 st.caption(
     "CAMS PM2.5 + Sentinel-5P + MODIS + SRTM | "
-    "Random Forest spatial downscaling prototype"
+    "Random Forest Machine Learning"
 )
 
 # ============================================================
@@ -49,40 +49,6 @@ except Exception as e:
     st.error("Earth Engine gagal diinisialisasi.")
     st.code(str(e))
     st.stop()
-
-# ============================================================
-# SIDEBAR
-# ============================================================
-
-st.sidebar.header("⚙️ Pengaturan")
-
-start_date = st.sidebar.date_input(
-    "Tanggal mulai",
-    value=date(2026, 8, 1)
-)
-
-end_date = st.sidebar.date_input(
-    "Tanggal akhir",
-    value=date(2026, 8, 31)
-)
-
-scale = st.sidebar.selectbox(
-    "Resolusi pemrosesan",
-    [1000, 2000, 5000],
-    index=0,
-    format_func=lambda x: f"{x/1000:g} km"
-)
-
-if start_date >= end_date:
-    st.sidebar.error("Tanggal akhir harus lebih besar dari tanggal mulai.")
-    st.stop()
-
-START_DATE = start_date.isoformat()
-# Earth Engine filterDate memakai end-exclusive.
-# Tambahkan satu hari supaya tanggal akhir ikut masuk.
-END_DATE_EXCLUSIVE = (
-    end_date.fromordinal(end_date.toordinal() + 1)
-).isoformat()
 
 # ============================================================
 # AOI - SESUAI IPYNB
@@ -579,20 +545,3 @@ components.html(
     height=720,
     scrolling=False
 )
-
-with st.expander("📋 Statistik lengkap"):
-    st.write({
-        "CAMS minimum (µg/m³)": cams_min,
-        "CAMS maximum (µg/m³)": cams_max,
-        "CAMS mean (µg/m³)": cams_mean_value,
-        "Downscaled minimum (µg/m³)": pm_min,
-        "Downscaled maximum (µg/m³)": pm_max,
-        "Downscaled mean (µg/m³)": pm_mean,
-        "Downscaled std dev (µg/m³)": pm_std
-    })
-
-with st.expander("ℹ️ Metodologi"):
-    st.markdown(
-        """2026 | Wasfi Qordowi
-        """
-    )
